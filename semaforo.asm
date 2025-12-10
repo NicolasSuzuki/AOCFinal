@@ -7,9 +7,9 @@
     str_seg:    .asciiz "s\n"
     
     # Desenhos ASCII dos estados
-    s_red:      .asciiz "\n  [X] PARE\n  [  ]\n  [  ]\n"
-    s_yellow:   .asciiz "\n  [  ]\n  [X] ATENCAO\n  [  ]\n"
-    s_green:    .asciiz "\n  [  ]\n  [  ]\n  [X] SIGA\n"
+    s_red:      .asciiz "\n  [🔴] PARE\n  [  ]\n  [  ]\n"
+    s_yellow:   .asciiz "\n  [  ]\n  [🟡] ATENCAO\n  [  ]\n"
+    s_green:    .asciiz "\n  [  ]\n  [  ]\n  [🟢] SIGA\n"
     
     timer_msg:  .asciiz " > "
 
