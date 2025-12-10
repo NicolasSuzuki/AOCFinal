@@ -7,46 +7,46 @@
     str_seg:    .asciiz "s\n"
     
     # Desenhos ASCII dos estados
-    s_red:      .asciiz "\n  [x] PARE\n  [  ]\n  [  ]\n"
-    s_yellow:   .asciiz "\n  [  ]\n  [x] ATENCAO\n  [  ]\n"
-    s_green:    .asciiz "\n  [  ]\n  [  ]\n  [x] SIGA\n"
+    s_red:      .asciiz "\n  [X] PARE\n  [  ]\n  [  ]\n"
+    s_yellow:   .asciiz "\n  [  ]\n  [X] ATENCAO\n  [  ]\n"
+    s_green:    .asciiz "\n  [  ]\n  [  ]\n  [X] SIGA\n"
     
     timer_msg:  .asciiz " > "
 
-    # Variáveis Globais
-    # Vetor para armazenar o histórico dos últimos 5 fluxos de carros
+    # Variaveis Globais
+    # Vetor para armazenar o historico dos ultimos 5 fluxos de carros
     historico_carros: .word 0, 0, 0, 0, 0 
-    tamanho_hist:     .word 5
+    tamanho_hist:     .word 0
+    tamanho_max:	.word 5
     indice_atual:     .word 0  # Para simular buffer circular
 
 .text
 .globl main
 
 # -----------------------------------------------------------------------------
-# Função Principal (MAIN)
+# Funcao Principal (MAIN)
 # -----------------------------------------------------------------------------
 main:
-    # Loop infinito do sistema embarcado
-    loop_sistema:
-        
-        # 1. Simular leitura do sensor (gera numero aleatorio 0-20)
-        li $v0, 42       # Syscall random int range
-        li $a0, 0        # ID do gerador
-        li $a1, 20       # Upper bound (0 a 19 carros)
-        syscall
-        move $s0, $a0    # $s0 guarda o fluxo atual
 
-        # 2. Atualizar Vetor de Histórico (Chama Função)
-        move $a0, $s0    # Passa o fluxo atual como argumento
+     # Loop infinito do sistema embarcado
+    loop_sistema:
+    
+        # 1. Leitura de carros passando
+        li $v0, 5
+        syscall
+        move $s0 , $v0
+
+        # 2. Atualizar Vetor de Historico (Chama Funcao)
+        move $a0, $s0   # Passa o fluxo atual como argumento
         jal atualizar_historico
 
-        # 3. Calcular Média Móvel (Algoritmo não trivial - Chama Função)
+        # 3. Calcular Media Movel (Algoritmo nao trivial - Chama Funcaoo)
         jal calcular_media_movel
-        move $s1, $v0    # $s1 guarda a média calculada
+        move $s1, $v0    # $s1 guarda a media calculada
 
-        # 4. Decidir tempo do VERDE baseado na média
-        # Se média > 10 carros, tempo = 9s. Se não, tempo = 4s.
-        li $s2, 4        # Tempo padrão (curto)
+        # 4. Decidir tempo do VERDE baseado na media
+        # Se media > 10 carros, tempo = 9s. Se nao, tempo = 4s.
+        li $s2, 4        # Tempo padrao (curto)
         ble $s1, 10, define_estado_verde
         li $s2, 9        # Tempo longo (alto fluxo)
 
@@ -54,7 +54,7 @@ main:
         # --- ESTADO: VERDE ---
         la $a0, s_green      # Carrega desenho Verde
         move $a1, $s0        # Fluxo atual (para log)
-        move $a2, $s1        # Média (para log)
+        move $a2, $s1        # Media (para log)
         move $a3, $s2        # Tempo definido
         jal desenhar_interface
         
@@ -81,39 +81,46 @@ main:
         li $a0, 5
         jal contagem_regressiva
 
-        j loop_sistema   # Volta para o início
+        j loop_sistema   # Volta para o in?cio
 
 # -----------------------------------------------------------------------------
-# Função: Atualizar Histórico (Uso de Vetor/Matriz)
-# Descrição: Insere o novo valor no vetor substituindo o mais antigo (Round Robin)
+# Funcaoo: Atualizar Historico (Uso de Vetor/Matriz)
+# Descricaoo: Insere o novo valor no vetor substituindo o mais antigo (Round Robin) -> se vetor jÃ¡ tem 5 posiÃ§Ãµes preenchidas
 # Entrada: $a0 (novo valor)
 # -----------------------------------------------------------------------------
 atualizar_historico:
-    # Prologo (Sem uso de pilha complexa pois é folha, mas vamos usar t regs)
+    # (Sem uso de pilha complexa pois eh folha, mas vamos usar t regs)
     lw $t0, indice_atual
     lw $t1, tamanho_hist
     la $t2, historico_carros
+    lw $t5, tamanho_max
     
+    # Se tamanho do historico menor que 5 (ou seja menos de 5 leituras feitas) ent o adiciona conforme leitura -> se ja for 5 segue com os ultimos 5 fluxos
+    bge $t1, 5, continua_sem_atualizar_tamanho
+    addi $t1, $t1, 1
+    sw $t1, tamanho_hist
+    
+ continua_sem_atualizar_tamanho:   
     mul $t3, $t0, 4      # Calcula offset (indice * 4 bytes)
-    add $t3, $t3, $t2    # Endereço base + offset
+    add $t3, $t3, $t2    # Endereco base + offset
     
     sw $a0, 0($t3)       # Salva o novo valor no vetor
     
-    # Atualiza índice circular: (i + 1) % tamanho
+    # Atualiza indice circular: (i + 1) % tamanho
     addi $t0, $t0, 1
-    div $t0, $t1
-    mfhi $t0             # Resto da divisão é o novo índice
+    div $t0, $t5
+    mfhi $t0             # Resto da divisao eh o novo indice
     
-    sw $t0, indice_atual # Salva na memória
+    sw $t0, indice_atual # Salva na memoria
     jr $ra
 
 # -----------------------------------------------------------------------------
-# Função: Calcular Média Móvel (Algoritmo Não Trivial)
-# Descrição: Percorre o vetor, soma e divide pelo tamanho.
-# Saída: $v0 (média inteira)
+# Funcao: Calcular Media Movel (Algoritmo Nao Trivial)
+# Descricaoo: Percorre o vetor, soma e divide pelo tamanho.
+# Saida: $v0 (media inteira)
 # -----------------------------------------------------------------------------
 calcular_media_movel:
-    # Prologo: Salvar $s0 na pilha (exemplo de uso de pilha)
+    # Salvar $s0 na pilha
     addi $sp, $sp, -4
     sw $s0, 0($sp)
     
@@ -126,13 +133,14 @@ calcular_media_movel:
         beq $t2, $t1, fim_soma
         lw $t4, 0($t0)   # Carrega valor do vetor
         add $t3, $t3, $t4 # Soma
-        addi $t0, $t0, 4 # Próximo endereço
+        addi $t0, $t0, 4 # Proximo endereco
         addi $t2, $t2, 1 # i++
         j loop_soma
         
     fim_soma:
-        div $t3, $t1     # Soma / Tamanho
+        div $t3, $t1    # Soma / Tamanho
         mflo $v0         # Resultado em $v0
+        move $t5, $v0
         
     # Epilogo: Restaurar pilha
     lw $s0, 0($sp)
@@ -140,14 +148,14 @@ calcular_media_movel:
     jr $ra
 
 # -----------------------------------------------------------------------------
-# Função: Desenhar Interface Completa (ASCII)
+# Funcao: Desenhar Interface Completa (ASCII)
 # Entrada: $a0 (Addr String Estado), $a1 (Fluxo), $a2 (Media), $a3 (Tempo)
 # -----------------------------------------------------------------------------
 desenhar_interface:
     addi $sp, $sp, -4    # Salva $ra pois faremos syscalls
     sw $ra, 0($sp)
     
-    move $t0, $a0        # Salva endereço da string do estado
+    move $t0, $a0        # Salva endereco da string do estado
     move $t1, $a1        # Salva fluxo
     move $t2, $a2        # Salva media
     move $t3, $a3        # Salva tempo
@@ -164,16 +172,22 @@ desenhar_interface:
     li $v0, 1
     move $a0, $t1
     syscall
-    
-    # Imprime Média
-    li $v0, 4
-    la $a0, str_media
-    syscall 
     li $v0, 11
     li $a0, 10 # \n
     syscall 
     
-    # Imprime Desenho do Semáforo
+    # Imprime Media
+    li $v0, 4
+    la $a0, str_media
+    syscall 
+    li $v0, 1
+    move $a0, $t5
+    syscall
+    li $v0, 11
+    li $a0, 10 # \n
+    syscall 
+    
+    # Imprime Desenho do Semaforo
     li $v0, 4
     move $a0, $t0
     syscall
@@ -194,7 +208,7 @@ desenhar_interface:
     jr $ra
 
 # -----------------------------------------------------------------------------
-# Função Auxiliar: Desenhar Interface Simples (Amarelo/Vermelho)
+# Funcao Auxiliar: Desenhar Interface Simples (Amarelo/Vermelho)
 # -----------------------------------------------------------------------------
 desenhar_interface_simples:
     addi $sp, $sp, -4
@@ -215,7 +229,7 @@ desenhar_interface_simples:
     jr $ra
 
 # -----------------------------------------------------------------------------
-# Função: Contagem Regressiva (Timer)
+# Funcao: Contagem Regressiva (Timer)
 # Entrada: $a0 (segundos)
 # -----------------------------------------------------------------------------
 contagem_regressiva:
@@ -224,7 +238,7 @@ contagem_regressiva:
     loop_timer:
         blez $t0, fim_timer
         
-        # Imprime número atual
+        # Imprime numero atual
         li $v0, 1
         move $a0, $t0
         syscall
@@ -236,7 +250,7 @@ contagem_regressiva:
         
         # Delay de 1 segundo (1000 ms)
         li $v0, 32
-        li $a0, 1000   # Para testar rápido, mude para 500 ou 200
+        li $a0, 1000   # Para testar rapido, mude para 500 ou 200
         syscall
         
         addi $t0, $t0, -1
